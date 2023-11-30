@@ -3,48 +3,28 @@
 ## Objective
 In this challenge, you will be provided with a simple Go application that prints "Hello, World!" at the `/hello` endpoint. Your task is to package the application into a Docker container, create theoretical Terraform code to provision an EKS cluster and VPC on AWS, and implement a deployment pipeline to deploy the application onto the EKS cluster. This challenge will assess your expertise in Docker, AWS, Kubernetes, and CI/CD best practices.
 
-**Time Limit:** Please don't spend more than 2 hours on this task.
-**Note:** You are not expected to complete all tasks within the time limit. You are not required to have access to an AWS account. Therefore, the Terraform code and pipeline should be designed to be theoretical and not require actual AWS credentials. Additionally, you can utilize diagrams to demonstrate the flow. Use markdown for the submission.
-
 ## Task 1: Dockerizing the Go Application
 
-1. Create a Dockerfile to package the provided Go application into a Docker container. The Docker image should be based on a suitable base image, and the application should listen on a configurable port via an environment variable.
-
-2. Test the Docker image locally to ensure it works as expected, exposing the application on the correct port.
+1. Dockerfile is present on the current repository and builds successfully.
+To set a repository to push to use `docker login -u USER_NAME REPO_URL` replacing the REPO_URL with your desired repository URL
 
 ## Task 2: Theoretical Terraform EKS Cluster and VPC
-
-1. Write theoretical Terraform code to provision an EKS cluster on AWS.
-
-2. Include configuration for a VPC with public and private subnets across multiple availability zones.
-
-3. Configure the EKS cluster with appropriate settings, including node instance type, desired Kubernetes version, and other relevant parameters.
-
-4. Use AWS provider blocks and data sources to interact with AWS services without requiring actual AWS account credentials.
+NOTE: the terraform main.tf contains all the IaC definitions, and this hasn't been fully tested on a live AWS account, hence beware of bugs as its theoretical.
 
 ## Task 3: Deployment Pipeline for EKS
 
-1. Design a deployment pipeline using a CI/CD tool of your choice (e.g., Github Actions, GitLab CI, CircleCI, etc.). If you prefer, you can use a local Git repository to demonstrate the pipeline steps.
-
-2. Ensure the pipeline triggers automatically whenever changes are pushed to the application's code repository (can be a theoretical repository).
-
-3. The application should be available internally within the VPC by using a hostname that you can choose.
-
-4. The application should be ready to deploy to multiple environments.
-
-5. Include the following stages in the pipeline:
-
-   - **Build Stage:** Build the Docker image of the Go application using the Dockerfile created in Task 1.
-
-   - **Push Stage:** Push the Docker image to a container registry of your choice (theoretical registry).
-
-   - **Deploy Stage:** Use kubectl (or equivalent) to deploy the application to the EKS cluster created in Task 2.
+Pipeline configuration file `pipeline-eks-deploy.yml` is present on the repository.
+This is an Azure DevOps pipeline configuration file.
+Included in it are the requested three stages: Build and Push Stage coupled together, and then Deploy Stage
 
 ## Submission
 
-Please upload the files to a private GitHub repository and add the following users as collaborators:
-
-- rkodyra
-- harshaisgud
-- armnitro
+Deployment flow
+1. Checkout or clone the repository as desired to an Azure DevOps repository
+2. Configure a the variables.tf file with additional details as needed or include a .tfvars file for each environment: dev, staging, prod.
+3. Run your `terraform init`, `terraform plan` and a `terraform apply` accordingly after resolving any issues. You can use ACCESS KEYS on the console for temporary access
+4. A backend is not configured, hence state file would be placed on local machine
+5. Once EKS Cluster is fully provisioned and running, then you can deploy the deployment configuration using the pipeline. The main.tf contains a kubernetes_manifest resource to create this file to be used in the next step.
+6. You can commit this new manifest file to the desired branch for each environment
+7. Run the pipeline to deploy according to that environment
 
