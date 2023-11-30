@@ -1,0 +1,87 @@
+name: $(year:yyyy).$(Month).$(DayOfMonth)$(rev:.r)
+
+trigger:
+  - main  # Adjust as per your branch names
+
+# replace trigger with pr block if to trigger only on pr
+# pr:
+# - dev
+pool:
+  vmImage: 'ubuntu-latest'
+
+parameters:
+  - name: "environment"
+    displayName: "Deployment environment variable input"
+    type: string
+    default: dev
+    values:
+      - "dev"
+      - "staging"
+      - "prod"
+
+
+# set this variable in the pipeline environment variable
+variables:
+  - name: docker_url
+    ${{ if eq(parameters.environment, 'prod') }}:
+      value: "hub.docker.com/repositories/enyiakwu/prod/nitro-go:latest"
+    ${{ else }}:
+      value: "hub.docker.com/repositories/enyiakwu/nitro-go:latest"  
+  - name: aws_default_region
+    ${{ if eq(parameters.environment, 'prod') }}:
+      value: "eu-north-1"
+    ${{ elseif or(eq(parameters.environment, 'dev'), eq(parameters.environment, 'staging')) }}:
+      value: "eu-west-1"
+  - name: AWS_ACCESS_KEY_ID
+    ${{ if eq(parameters.environment, 'prod') }}:
+      value: $(PROD_AWS_KEY)
+    ${{ elseif or(eq(parameters.environment, 'dev'), eq(parameters.environment, 'staging')) }}:
+      value: $(DEV_AWS_KEY)
+  - name: AWS_SECRET_ACCESS_KEY
+    ${{ if eq(parameters.environment, 'prod') }}:
+      value: $(PROD_AWS_SECRET)
+    ${{ elseif or(eq(parameters.environment, 'dev'), eq(parameters.environment, 'staging')) }}:
+      value: $(DEV_AWS_SECRET)        
+
+
+stages:
+  # Build
+  - stage: Build
+    jobs:
+    - job: BuildandPush
+      steps:
+        - checkout: self
+          displayName: Checkout Code
+          clean: true
+          path: '.\app'
+
+        - task: Bash@3
+          displayName: Build and Push Docker image
+          inputs:
+            workingDirectory: '..\app'
+            targetType: 'inline'
+            script: |
+              docker build -t ${{ variables.docker_url }}/nitro-go:latest .
+              docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD ${{ variables.docker_url }}
+              docker push ${{ variables.docker_url }}/nitro-go:latest
+          env:
+            DOCKER_USERNAME: $(DOCKER_USERNAME)
+            DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+
+    # Deploy
+  - stage: Deploy
+    jobs:
+      - job: DeploytoEKS
+        steps:
+          - task: Bash@3
+            displayName: Deploy to EKS
+            inputs:
+              workingDirectory: '..\app'
+              targetType: 'inline'
+              script: |
+                aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name your-eks-cluster-name
+                kubectl apply -f your-kubernetes-manifest.yaml  # Path to your Kubernetes manifest file
+            env:
+                AWS_ACCESS_KEY_ID: ${{ variables.AWS_ACCESS_KEY_ID }}
+                AWS_SECRET_ACCESS_KEY: ${{ variables.AWS_SECRET_ACCESS_KEY }}
+                AWS_DEFAULT_REGION: ${{ variables.aws_default_region }}
